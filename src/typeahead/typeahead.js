@@ -373,10 +373,16 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
       }
     };
 
+    var scrollingContainerEl;
+
     //bind keyboard events: arrows up(38) / down(40), enter(13) and tab(9), esc(27)
     element.on('keydown', function(evt) {
       //typeahead is open and an "interesting" key was pressed
       if (scope.matches.length === 0 || HOT_KEYS.indexOf(evt.which) === -1) {
+        if (scrollingContainerEl) {
+          scrollingContainerEl.scrollTop = 0;
+        }
+
         return;
       }
 
@@ -400,6 +406,10 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
         case 27: // escape
           evt.stopPropagation();
 
+          if (scrollingContainerEl) {
+            scrollingContainerEl.scrollTop = 0;
+          }
+
           resetMatches();
           originalScope.$digest();
           break;
@@ -407,13 +417,29 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.debounce', 'ui.bootstrap
           scope.activeIdx = (scope.activeIdx > 0 ? scope.activeIdx : scope.matches.length) - 1;
           scope.$digest();
           target = popUpEl[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
-          target.parentNode.scrollTop = target.offsetTop;
+
+          if (!target.parentNode.scrollTop && scope.activeIdx === scope.matches.length - 1) {
+            target.parentNode.scrollTop = target.parentNode.scrollHeight - target.parentNode.clientHeight;
+            scrollingContainerEl = target.parentNode;
+          } else if (target.offsetTop < target.parentNode.scrollTop) {
+            target.parentNode.scrollTop -= target.clientHeight;
+            scrollingContainerEl = target.parentNode;
+          }
+
           break;
         case 40: // down arrow
           scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
           scope.$digest();
           target = popUpEl[0].querySelectorAll('.uib-typeahead-match')[scope.activeIdx];
-          target.parentNode.scrollTop = target.offsetTop;
+
+          if (scope.activeIdx === 0 && target.parentNode.scrollTop > 0) {
+            target.parentNode.scrollTop = 0;
+            scrollingContainerEl = target.parentNode;
+          } else if (target.offsetTop + target.clientHeight >= target.parentNode.scrollTop + target.parentNode.clientHeight) {
+            target.parentNode.scrollTop += target.clientHeight;
+            scrollingContainerEl = target.parentNode;
+          }
+
           break;
         default:
           if (shouldSelect) {
